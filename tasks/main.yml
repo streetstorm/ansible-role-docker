@@ -1,0 +1,72 @@
+---
+- name: Docker | Uninstall old versions of Docker
+  ansible.builtin.apt:
+    name:
+      - docker
+      - docker-py
+      - docker-engine
+      - docker.io
+    state: absent
+
+- name: Docker | Install requirements
+  ansible.builtin.package:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+    state: present
+
+- name: Docker | Add apt key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+- name: Docker | Add repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    state: present
+    update_cache: true
+
+- name: Docker | Prepare Docker configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: 0700
+
+- name: Docker | Install Docker latest
+  ansible.builtin.apt:
+    name: "docker-ce"
+    state: present
+  when: docker_version is not defined
+
+- name: Docker | Install Docker
+  ansible.builtin.apt:
+    name: "docker-ce={{ docker_version }}"
+    state: present
+  when: docker_version is defined
+
+- name: Docker | Ensure service is started and enabled at boot
+  ansible.builtin.service:
+    name: "docker"
+    state: started
+    enabled: true
+
+- name: Docker-compose | Install pip
+  ansible.builtin.apt:
+    name:
+      - "python3-pip"
+    state: present
+
+- name: Docker-compose | Install docker-compose
+  ansible.builtin.pip:
+    name: docker-compose
+    state: present
+
+- name: Docker | Ensure docker users are added to the docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  with_items: "{{ docker_users }}"
+  when: docker_users is defined
